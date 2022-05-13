@@ -1,0 +1,58 @@
+#=============================== import the relevant packages =============================#
+
+import numpy as np
+import yfinance as yf
+from arch import arch_model
+import matplotlib.pyplot as plt
+
+#==========================================================================================#
+#===================================== download the data ==================================#
+
+start = '2003-12-01'
+end = '2021-12-01'
+tic = 'SPY'
+df = yf.Ticker(tic).history(start=start, end=end)[['Close']]
+
+#==========================================================================================#
+#======================================= calculations =====================================#
+
+rets = 100 * ( np.log(df.Close/df.Close.shift(1))[1:] ) 
+real_vol = rets.rolling(5).std()
+real_vol = real_vol.dropna()
+
+#==========================================================================================#
+#============================ Bayesian Information Criteria ===============================#
+
+n = 252  # days to forecast
+dates = rets.iloc[-n:].index
+# BIC 
+bic = []
+for p in range(1, 5):
+    for q in range(1, 5):
+        model = arch_model(rets[:-n], mean='zero',vol='GARCH', p=p, o=0, q=q).fit(disp='off')
+        bic.append(model.bic) 
+        if model.bic == min(bic):
+            best_param = p, q # choosing the model with the lowest BIC
+            
+#==========================================================================================#
+#==================================== optimal model =======================================#
+
+p,q = best_param
+model = arch_model(rets, mean='zero', vol='GARCH', p=p, o=0,q=q).fit(disp='off')
+predict = model.forecast(start=dates[0])
+predict = predict.variance.iloc[-len(dates):] # predicted real_vol
+
+#==========================================================================================#
+#======================================== RMSE ============================================#
+error = (real_vol[-n:].values / 100) - (predict.iloc[:,0].values / 100)
+rmse = np.sqrt(np.mean(np.square(error)))
+print('The RMSE value of GARCH model is {:.4f}'.format(rmse))
+
+#==========================================================================================#
+#======================================== plotting ========================================#
+plt.figure(figsize=(10,6))
+plt.plot(real_vol / 100, label = 'Realized Volatility')
+plt.plot(predict / 100, label= 'Volatility Prediction-GARCH')
+plt.title('Volatility Prediction with GARCH', fontsize=12)
+plt.legend()
+plt.show()
