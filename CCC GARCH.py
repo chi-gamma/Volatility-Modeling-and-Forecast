@@ -28,13 +28,8 @@ for stock in stocks:
 
     
     
-# Calculate the Bollerslev's Constant Conditional Correlation Estimator
-T, N = std_residuals.shape
-R = std_residuals.T.dot(std_residuals) / T
-# rescaling
-temp = np.tile(np.diag(R), (N,1))
-R = R / (np.sqrt(temp.T * temp))
-    
+# Calculate the Constant Conditional Correlation
+R = std_residuals.corr() 
 
 # Forecast one-step-ahead conditional covariance matrix
 n = len(stocks)  
